@@ -42,10 +42,17 @@ public class DbInitializer {
         }
 
         public void clearAll() {
-                dormRepository.deleteAll();
+                expenseShareRepository.deleteAll();
+                expenseRepository.deleteAll();
                 taskRepository.deleteAll();
                 eventRepository.deleteAll();
                 userRepository.deleteAll();
+                dormRepository.deleteAll();
+        }
+
+        public void reset() {
+                clearAll();
+                this.init();
         }
 
         @PostConstruct
@@ -133,9 +140,8 @@ public class DbInitializer {
                 blijdeInkom.addEvent(event2);
                 tiensestraat.addEvent(event3);
 
-
                 // EXPENSES AND EXPENSE SHARES
-                Expense groceries = new Expense("Groceries",  92.50, nathan);
+                Expense groceries = new Expense("Groceries", 92.50, nathan);
                 groceries.setDorm(blijdeInkom);
                 ExpenseShare g1 = new ExpenseShare(nathan, 30.83);
                 ExpenseShare g2 = new ExpenseShare(rajo, 30.83);
@@ -145,7 +151,7 @@ public class DbInitializer {
                 groceries.addShare(g3);
 
                 // Utility bill shared between two users
-                Expense utilities = new Expense("Utilities",  68.50, rajo);
+                Expense utilities = new Expense("Utilities", 68.50, rajo);
                 utilities.setDorm(blijdeInkom);
                 ExpenseShare u1 = new ExpenseShare(nathan, 34.25);
                 ExpenseShare u2 = new ExpenseShare(rajo, 34.25);
@@ -179,7 +185,8 @@ public class DbInitializer {
                 userRepository.save(rajo);
                 userRepository.save(sander);
 
-                // Save expenses (shares should cascade if model configured; otherwise repository saves)
+                // Save expenses (shares should cascade if model configured; otherwise
+                // repository saves)
                 expenseRepository.save(groceries);
                 expenseRepository.save(utilities);
                 expenseRepository.save(pizza);
