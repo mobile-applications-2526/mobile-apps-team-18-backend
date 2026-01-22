@@ -33,7 +33,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
@@ -46,9 +45,6 @@ import static org.springframework.boot.autoconfigure.security.servlet.PathReques
 public class SecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
-    /**
-     * This sets up a separate security filter chain for the H2 console
-     */
     @Bean
     @Order(0)
     @ConditionalOnProperty(prefix = "spring.h2.console", name = "enabled", havingValue = "true")
@@ -65,25 +61,20 @@ public class SecurityConfig {
     @Bean
     @Order(1)
     SecurityFilterChain securityFilterChain(HttpSecurity http,
-            CorsProperties corsProperties, CustomAuthenticationEntryPoint customAuthenticationEntryPoint)
+            CustomAuthenticationEntryPoint customAuthenticationEntryPoint)
             throws Exception {
         return http
+                .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(
                         authorizeRequests -> authorizeRequests
-                                // Allow all access to health check
                                 .requestMatchers("/status").permitAll()
-                                // Allow all access to error endpoints
                                 .requestMatchers("/error/**").permitAll()
-                                // Allow all to login and signup
                                 .requestMatchers("/users/login", "/users/signup").permitAll()
-                                // Allow OpenAPI access
                                 .requestMatchers("/v3/api-docs/**").permitAll()
-                                // Allow Swagger UI
                                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
                                 .requestMatchers("/data/*").permitAll()
                                 .anyRequest().authenticated())
-                .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()))
                 .exceptionHandling(
                         exceptionHandling -> exceptionHandling.authenticationEntryPoint(customAuthenticationEntryPoint))
@@ -91,13 +82,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    CorsConfigurationSource corsConfigurationSource(CorsProperties corsProperties) {
+    CorsConfigurationSource corsConfigurationSource() {
         final var configuration = new CorsConfiguration();
-        final var allowedOrigins = corsProperties.allowedOrigins().stream().map(URL::toString).toList();
-        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of("Authorization"));
+
         final var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -117,8 +109,6 @@ public class SecurityConfig {
             return secretKeyGenerator.generateKey();
         } else {
             final var bytes = jwtProperties.secretKey().getBytes(StandardCharsets.UTF_8);
-            // Even though we're doing HMAC-SHA256, not AES, we still need to provide an
-            // algorithm
             return new SecretKeySpec(bytes, "AES");
         }
     }
@@ -130,11 +120,9 @@ public class SecurityConfig {
 
     @Bean
     JwtEncoder jwtEncoder(SecretKey secretKey) {
-        // JWK = JSON Web Keys
-        final JWK jwk = new OctetSequenceKey.Builder(secretKey)
+        final var jwk = new OctetSequenceKey.Builder(secretKey)
                 .algorithm(JWSAlgorithm.HS256)
                 .build();
-        // JWK set
         final var jwks = new ImmutableJWKSet<>(new JWKSet(jwk));
         return new NimbusJwtEncoder(jwks);
     }
